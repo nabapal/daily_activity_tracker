@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow-lg">
+        <div class="card-header bg-primary text-white">
+            <h3>Activity Details</h3>
+        </div>
+        <div class="card-body">
+            <h5><i class="bi bi-clipboard"></i> <strong>ID:</strong> {{ activity.id }}</h5>
+            <p><i class="bi bi-journal-text"></i> <strong>Description:</strong> {{ activity.description }}</p>
+            <p><i class="bi bi-diagram-3"></i> <strong>Node Name:</strong> {{ activity.node_name }}</p>
+            <p><i class="bi bi-calendar-check"></i> <strong>Start Date:</strong> {{ activity.start_date }}</p>
+            <p><i class="bi bi-calendar-event"></i> <strong>End Date:</strong> {{ activity.end_date }}</p>
+            <p><i class="bi bi-tag"></i> <strong>Status:</strong>
+                <span class="badge {% if activity.status == 'completed' %}bg-success{% elif activity.status == 'in_progress' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                    {{ activity.status }}
+                </span>
+            </p>
+            <p><i class="bi bi-person-check"></i> <strong>Assigned Members:</strong>
+                {% for user in activity.assigned_users.all %}
+                    <span class="badge bg-info">{{ user.username }}</span>
+                {% empty %}
+                    <span class="text-muted">No assignees</span>
+                {% endfor %}
+            </p>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <h4>Activity Updates</h4>
+        <div class="timeline">
+            {% for update in updates %}
+            <div class="timeline-item">
+                <div class="timeline-content">
+                    <h6><i class="bi bi-person"></i> {{ update.updated_by.username }} - {{ update.update_date }}</h6>
+                    <p>{{ update.update_text }}</p>
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-muted">No updates yet.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <h4>Add Update</h4>
+        <form method="POST">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label for="update_text" class="form-label">Update</label>
+                <textarea name="update_text" class="form-control" rows="3" required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Submit Update</button>
+        </form>
+    </div>
+</div>
+
+<style>
+    .timeline {
+        border-left: 3px solid #007bff;
+        padding-left: 15px;
+        margin-top: 20px;
+    }
+    .timeline-item {
+        margin-bottom: 15px;
+    }
+    .timeline-content {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 5px;
+    }
+</style>
+{% endblock %}

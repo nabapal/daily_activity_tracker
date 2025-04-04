@@ -1,0 +1,71 @@
+read what you have said for the requirement. Please included all the requitements in code ." Updated Feature: Multi-Team Member Activity Assignment
+Team Leads can assign one activity to multiple team members.
+
+Each assigned team member will see the activity in their dashboard.
+
+When a user clicks on an activity, they see:
+
+Activity details (Node Name, Type, Status, Dates).
+
+All historical updates with timestamps.
+
+Who added each update (if multiple users are assigned).
+
+í ½í³Œ Each team member can update only their own progress, but all assigned members & the Team Lead can see the updates.
+
+âœ… Updated User Dashboard (Team Member)
+View own activities + shared activities.
+
+Update progress on shared activities, but canâ€™t modify others' updates.
+
+Search & filter activities (by ID, status, team member, etc.).
+
+Activity details page shows historical updates with timestamps.
+
+âœ… Updated Team Lead Dashboard
+Assign one activity to multiple team members.
+
+View all assigned users for each activity.
+
+Monitor updates from each assigned team member.
+
+Export team reports with assigned users included.
+
+Modify activity status & track progress.
+
+í ½í³Œ Team Leads canâ€™t delete updates but can modify activity status.
+
+âœ… Super Admin Dashboard
+Full visibility into all activities.
+
+Monitor updates & assigned users per activity.
+
+Export reports showing team-wise and user-wise activity breakdown.
+
+Manage dropdowns, team members, and leads.
+
+âœ… Enhanced Activity Tracking
+Every update is timestamped and includes:
+
+User who updated it.
+
+Update description.
+
+Date of the update.
+
+Activity Detail View will show:
+
+List of updates sorted by date.
+
+Which team members are assigned.
+
+Current status & completion progress.
+
+í ½íº€ Final Next Steps
+Update Django models to support multiple assignees per activity.
+
+Modify dashboard logic to show shared activities.
+
+Improve Activity Details UI for better historical tracking.
+
+Update reporting to include multi-assignee tracking."
