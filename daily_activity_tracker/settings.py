@@ -6,6 +6,8 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 print(BASE_DIR)
 
+AUTH_USER_MODEL = 'activity.CustomUser'  # Or whatever your custom user model is
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',  # Change this if using PostgreSQL or MySQL
@@ -52,6 +54,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
 ]
 # Set up static files (for CSS/JS)
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'activity/static')]
 STATIC_URL = '/static/'
 SECRET_KEY = 'ABCD'  # Replace with a real secret key
 

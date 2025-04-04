@@ -1,6 +1,8 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
+from daily_activity_tracker import settings
+
 # Role Choices
 ROLE_CHOICES = [
     ('super_admin', 'Super Admin'),
@@ -30,7 +32,21 @@ class CustomUser(AbstractUser):
     def __str__(self):
         return self.username
 
+
+class User(AbstractUser):  # Must be named 'User' (capital U)
+    ROLE_CHOICES = [
+        ('ADMIN', 'Admin'),
+        ('LEAD', 'Team Lead'),
+        ('MEMBER', 'Team Member'),
+    ]
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='MEMBER')
+
+    # Add this to avoid clashes
+    class Meta:
+        db_table = 'auth_user'  # Maintains compatibility
+
 class Activity(models.Model):
+    assigned_users = models.ManyToManyField(settings.AUTH_USER_MODEL)
     STATUS_CHOICES = [
         ('in_progress', 'In Progress'),
         ('completed', 'Completed'),
