@@ -1,101 +1,141 @@
-# activity/views.py
-from django.contrib.auth import get_user_model
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from django.http import HttpResponse
-import csv
-
-from .models import Activity, ActivityUpdate, CustomUser
-
-
-# Role-based access decorator
-def role_required(allowed_roles):
-    def decorator(view_func):
-        def wrapper(request, *args, **kwargs):
-            if request.user.role not in allowed_roles:
-                messages.error(request, "Access Denied!")
-                return redirect('dashboard')
-            return view_func(request, *args, **kwargs)
-        return wrapper
-    return decorator
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.shortcuts import render, get_object_or_404, redirect
+from django.db.models import Q
+from .models import Activity, ActivityUpdate
+from .forms import ActivityUpdateForm, ActivityForm
 
 
 @login_required
 def user_dashboard(request):
-    User = get_user_model()
-    """ Dashboard for team members to view & update activities """
-    activities = Activity.objects.filter(assigned_users=request.user)
-    return render(request, 'dashboard.html', {'activities': activities})
+    # Get activities assigned to user or where user is creator
+    activities = Activity.objects.filter(
+        Q(assigned_to=request.user) | Q(created_by=request.user)
+    ).distinct().order_by('-created_at')
+
+    return render(request, 'activity/dashboard.html', {
+        'activities': activities
+    })
 
 
 @login_required
-@role_required(['team_lead', 'super_admin'])
+def activity_detail(request, pk):
+    activity = get_object_or_404(Activity, pk=pk)
+
+    if request.method == 'POST':
+        form = ActivityUpdateForm(request.POST)
+        if form.is_valid():
+            update = form.save(commit=False)
+            update.activity = activity
+            update.user = request.user
+            update.save()
+            return redirect('activity_detail', pk=pk)
+    else:
+        form = ActivityUpdateForm()
+
+    return render(request, 'activity/activity_detail.html', {
+        'activity': activity,
+        'updates': activity.updates.all(),
+        'assigned_users': activity.assigned_to.all(),
+        'form': form
+    })
+
+
+@login_required
 def team_lead_dashboard(request):
-    """ Dashboard for Team Leads to manage & assign activities """
-    activities = Activity.objects.all()
-    users = CustomUser.objects.filter(role="team_member")
-    return render(request, 'lead_dashboard.html', {'activities': activities, 'users': users})
+    if not request.user.role == 'LEAD':
+        return redirect('dashboard')
 
+    team_activities = Activity.objects.filter(
+        Q(created_by=request.user) |
+        Q(assigned_to__in=request.user.team_members.all())
+    ).distinct()
+
+    return render(request, 'activity/lead_dashboard.html', {
+        'activities': team_activities
+    })
+def is_super_admin(user):
+    return user.role == 'ADMIN'  # Or whatever your super admin role check is
 
 @login_required
-@role_required(['super_admin'])
+@user_passes_test(is_super_admin)
 def super_admin_dashboard(request):
-    """ Dashboard for Super Admin to view all activities & generate reports """
     activities = Activity.objects.all()
-    return render(request, 'admin_dashboard.html', {'activities': activities})
+    return render(request, 'activity/super_admin_dashboard.html', {
+        'activities': activities
+    })
 
 
 @login_required
-def activity_detail(request, activity_id):
-    """ Activity detail view with historical updates """
-    activity = get_object_or_404(Activity, id=activity_id)
-    updates = ActivityUpdate.objects.filter(activity=activity).order_by('-update_date')
-
-    if request.method == "POST":
-        update_text = request.POST.get("update_text")
-        if update_text:
-            ActivityUpdate.objects.create(activity=activity, updated_by=request.user, update_text=update_text)
-            messages.success(request, "Update added successfully.")
-            return redirect('activity_detail', activity_id=activity.id)
-
-    return render(request, 'activity_detail.html', {'activity': activity, 'updates': updates})
-
-
-@login_required
-@role_required(['team_lead', 'super_admin'])
 def assign_activity(request):
-    """ Assign an activity to multiple team members """
-    if request.method == "POST":
-        activity_id = request.POST.get("activity_id")
-        user_ids = request.POST.getlist("assigned_users")
+    if request.method == 'POST':
+        form = ActivityForm(request.POST)
+        if form.is_valid():
+            activity = form.save(commit=False)
+            activity.created_by = request.user
+            activity.save()
+            form.save_m2m()  # Needed for many-to-many relationships
+            return redirect('dashboard')  # Redirect to dashboard after assignment
+    else:
+        form = ActivityForm()
 
-        activity = get_object_or_404(Activity, id=activity_id)
-        users = CustomUser.objects.filter(id__in=user_ids)
-        activity.assigned_users.set(users)
-
-        messages.success(request, "Activity assigned successfully.")
-        return redirect('team_lead_dashboard')
-
-    return redirect('team_lead_dashboard')
+    return render(request, 'activity/assign_activity.html', {
+        'form': form
+    })
 
 
+# Assign Activity View
 @login_required
-@role_required(['super_admin'])
+def assign_activity(request):
+    if request.method == 'POST':
+        form = ActivityForm(request.POST)
+        if form.is_valid():
+            activity = form.save(commit=False)
+            activity.created_by = request.user
+            activity.save()
+            form.save_m2m()  # Save many-to-many relationships
+            return redirect('dashboard')
+    else:
+        form = ActivityForm()
+
+    return render(request, 'activity/assign_activity.html', {'form': form})
+
+
+# Export Report View
+@login_required
 def export_report(request):
-    """ Export activity report to CSV """
+    # Create the HttpResponse object with CSV header
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="activity_report.csv"'
 
     writer = csv.writer(response)
-    writer.writerow(['Activity Title', 'Node Name', 'Status', 'Start Date', 'End Date', 'Assigned Users'])
+    # Write CSV header
+    writer.writerow(['ID', 'Title', 'Status', 'Start Date', 'End Date', 'Assigned Users', 'Last Update'])
 
-    activities = Activity.objects.all()
+    # Get activities for the current user
+    activities = Activity.objects.filter(
+        Q(assigned_to=request.user) | Q(created_by=request.user)
+    ).distinct()
+
     for activity in activities:
-        assigned_users = ", ".join([user.username for user in activity.assigned_users.all()])
-        writer.writerow([activity.title, activity.node_name, activity.status, activity.start_date, activity.end_date, assigned_users])
+        last_update = activity.updates.last()
+        writer.writerow([
+            activity.id,
+            activity.title,
+            activity.get_status_display(),
+            activity.start_date.strftime('%Y-%m-%d'),
+            activity.end_date.strftime('%Y-%m-%d'),
+            ', '.join([user.username for user in activity.assigned_to.all()]),
+            last_update.created_at.strftime('%Y-%m-%d %H:%M') if last_update else 'None'
+        ])
 
     return response
 
+
+@login_required
 def home(request):
-    return render(request, 'activity/home.html')
+    # Get activities for the current user
+    user_activities = Activity.objects.filter(assigned_to=request.user).order_by('-start_date')
+
+    return render(request, 'activity/home.html', {
+        'activities': user_activities
+    })

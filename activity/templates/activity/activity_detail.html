@@ -1,73 +1,176 @@
-{% extends 'base.html' %}
-{% block content %}
-<div class="container mt-5">
-    <div class="card shadow-lg">
-        <div class="card-header bg-primary text-white">
-            <h3>Activity Details</h3>
-        </div>
-        <div class="card-body">
-            <h5><i class="bi bi-clipboard"></i> <strong>ID:</strong> {{ activity.id }}</h5>
-            <p><i class="bi bi-journal-text"></i> <strong>Description:</strong> {{ activity.description }}</p>
-            <p><i class="bi bi-diagram-3"></i> <strong>Node Name:</strong> {{ activity.node_name }}</p>
-            <p><i class="bi bi-calendar-check"></i> <strong>Start Date:</strong> {{ activity.start_date }}</p>
-            <p><i class="bi bi-calendar-event"></i> <strong>End Date:</strong> {{ activity.end_date }}</p>
-            <p><i class="bi bi-tag"></i> <strong>Status:</strong>
-                <span class="badge {% if activity.status == 'completed' %}bg-success{% elif activity.status == 'in_progress' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
-                    {{ activity.status }}
-                </span>
-            </p>
-            <p><i class="bi bi-person-check"></i> <strong>Assigned Members:</strong>
-                {% for user in activity.assigned_users.all %}
-                    <span class="badge bg-info">{{ user.username }}</span>
-                {% empty %}
-                    <span class="text-muted">No assignees</span>
-                {% endfor %}
-            </p>
-        </div>
-    </div>
+{% extends 'activity/base.html' %}
+{% load static %}
 
-    <div class="mt-4">
-        <h4>Activity Updates</h4>
-        <div class="timeline">
-            {% for update in updates %}
-            <div class="timeline-item">
-                <div class="timeline-content">
-                    <h6><i class="bi bi-person"></i> {{ update.updated_by.username }} - {{ update.update_date }}</h6>
-                    <p>{{ update.update_text }}</p>
+{% block content %}
+<div class="container activity-detail-container mt-4">
+    <!-- Activity Header Card -->
+    <div class="card activity-header mb-4">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h3 class="mb-0">
+                <i class="bi bi-clipboard2-pulse me-2"></i>{{ activity.title }}
+            </h3>
+            <span class="badge bg-{% if activity.status == 'COMPLETED' %}success{% elif activity.status == 'IN_PROGRESS' %}warning text-dark{% else %}secondary{% endif %}">
+                {{ activity.get_status_display }}
+            </span>
+        </div>
+
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><i class="bi bi-journal-text me-2"></i><strong>Description:</strong> {{ activity.description }}</p>
+                    <p><i class="bi bi-diagram-3 me-2"></i><strong>Node Name:</strong> {{ activity.node_name }}</p>
+                    <p><i class="bi bi-tag me-2"></i><strong>Type:</strong> {{ activity.activity_type }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><i class="bi bi-calendar-check me-2"></i><strong>Start:</strong> {{ activity.start_date|date:"M d, Y H:i" }}</p>
+                    <p><i class="bi bi-calendar-event me-2"></i><strong>End:</strong> {{ activity.end_date|date:"M d, Y H:i" }}</p>
+                    <p>
+                        <i class="bi bi-people me-2"></i><strong>Assigned To:</strong>
+                        {% for user in activity.assigned_to.all %}
+                            <span class="badge bg-info me-1">{{ user.get_full_name|default:user.username }}</span>
+                        {% empty %}
+                            <span class="text-muted">Not assigned</span>
+                        {% endfor %}
+                    </p>
                 </div>
             </div>
-            {% empty %}
-            <p class="text-muted">No updates yet.</p>
-            {% endfor %}
         </div>
     </div>
 
-    <div class="mt-4">
-        <h4>Add Update</h4>
-        <form method="POST">
-            {% csrf_token %}
-            <div class="mb-3">
-                <label for="update_text" class="form-label">Update</label>
-                <textarea name="update_text" class="form-control" rows="3" required></textarea>
+    <!-- Updates Timeline Section -->
+    <div class="card updates-section mb-4">
+        <div class="card-header bg-light">
+            <h4 class="mb-0"><i class="bi bi-clock-history me-2"></i>Activity History</h4>
+        </div>
+        <div class="card-body">
+            {% if updates %}
+            <div class="timeline">
+                {% for update in updates %}
+                <div class="timeline-item {% if update.user == request.user %}my-update{% endif %}">
+                    <div class="timeline-badge"></div>
+                    <div class="timeline-content card">
+                        <div class="card-header d-flex justify-content-between bg-{% if update.user == request.user %}info{% else %}light{% endif %}">
+                            <strong>{{ update.user.get_full_name|default:update.user.username }}</strong>
+                            <small class="text-muted">{{ update.created_at|date:"M d, Y H:i" }}</small>
+                        </div>
+                        <div class="card-body">
+                            <p>{{ update.description }}</p>
+                            {% if update.progress %}
+                            <div class="progress mt-2">
+                                <div class="progress-bar bg-success" role="progressbar"
+                                     style="width: {{ update.progress }}%"
+                                     aria-valuenow="{{ update.progress }}"
+                                     aria-valuemin="0"
+                                     aria-valuemax="100">
+                                    {{ update.progress }}%
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
             </div>
-            <button type="submit" class="btn btn-primary">Submit Update</button>
-        </form>
+            {% else %}
+            <div class="alert alert-info">No updates yet. Be the first to add one!</div>
+            {% endif %}
+        </div>
     </div>
+
+    <!-- Update Form Section -->
+    {% if request.user in activity.assigned_to.all or request.user == activity.created_by %}
+    <div class="card update-form-section">
+        <div class="card-header bg-light">
+            <h4 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Add Update</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST" class="needs-validation" novalidate>
+                {% csrf_token %}
+                <div class="mb-3">
+                    {{ form.description.label_tag }}
+                    {{ form.description }}
+                    <div class="invalid-feedback">
+                        Please provide an update description.
+                    </div>
+                </div>
+                <div class="mb-3">
+                    {{ form.progress.label_tag }}
+                    <div class="input-group">
+                        {{ form.progress }}
+                        <span class="input-group-text">%</span>
+                    </div>
+                    <small class="form-text text-muted">Enter progress percentage (0-100)</small>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-send me-1"></i>Submit Update
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <style>
+    .activity-detail-container {
+        max-width: 1200px;
+    }
+
     .timeline {
-        border-left: 3px solid #007bff;
-        padding-left: 15px;
-        margin-top: 20px;
+        position: relative;
+        padding-left: 30px;
     }
+
     .timeline-item {
-        margin-bottom: 15px;
+        position: relative;
+        margin-bottom: 20px;
     }
+
+    .timeline-badge {
+        position: absolute;
+        left: -30px;
+        top: 0;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background-color: #0d6efd;
+        border: 3px solid white;
+    }
+
+    .timeline-item.my-update .timeline-badge {
+        background-color: #198754;
+    }
+
     .timeline-content {
-        background: #f8f9fa;
-        padding: 10px;
-        border-radius: 5px;
+        position: relative;
+        border-left: 3px solid #dee2e6;
+        padding-left: 15px;
+    }
+
+    .timeline-item:last-child .timeline-content {
+        border-left: 3px solid transparent;
+    }
+
+    .progress {
+        height: 20px;
     }
 </style>
+
+<script>
+// Client-side form validation
+(function() {
+    'use strict';
+    window.addEventListener('load', function() {
+        var forms = document.getElementsByClassName('needs-validation');
+        Array.prototype.filter.call(forms, function(form) {
+            form.addEventListener('submit', function(event) {
+                if (form.checkValidity() === false) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                form.classList.add('was-validated');
+            }, false);
+        });
+    }, false);
+})();
+</script>
 {% endblock %}

@@ -1,0 +1,27 @@
+{% extends "activity/base.html" %}
+
+{% block content %}
+<h1>Super Admin Dashboard</h1>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Activity</th>
+            <th>Status</th>
+            <th>Assigned To</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for activity in activities %}
+        <tr>
+            <td>{{ activity.title }}</td>
+            <td>{{ activity.get_status_display }}</td>
+            <td>
+                {% for user in activity.assigned_to.all %}
+                {{ user.username }}{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
