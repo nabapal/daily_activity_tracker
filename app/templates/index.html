@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-8 text-center">
+        <h1 class="display-4 mb-4">Welcome to Daily Activity Tracker</h1>
+        <p class="lead mb-5">Track your daily activities, monitor your productivity, and gain insights into your time management.</p>
+        
+        <div class="d-grid gap-3 d-sm-flex justify-content-sm-center">
+            <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg px-4 gap-3">Get Started</a>
+            <a href="{{ url_for('auth.login') }}" class="btn btn-outline-secondary btn-lg px-4">Login</a>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title"><i class="bi bi-clock-history fs-1"></i></h5>
+                <h4 class="card-title">Time Tracking</h4>
+                <p class="card-text">Easily record how you spend your time throughout the day.</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title"><i class="bi bi-bar-chart fs-1"></i></h5>
+                <h4 class="card-title">Visual Reports</h4>
+                <p class="card-text">View detailed reports and charts of your activity patterns.</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title"><i class="bi bi-graph-up fs-1"></i></h5>
+                <h4 class="card-title">Productivity Insights</h4>
+                <p class="card-text">Identify your most productive times and activities.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

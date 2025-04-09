@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}Activity Reports{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.css">
+<style>
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin-bottom: 2rem;
+    }
+    .stat-card {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h2>Activity Reports</h2>
+    </div>
+    <div class="card-body">
+        <form method="GET" class="row g-3 mb-4">
+            <div class="col-md-3">
+                <label for="start_date" class="form-label">Start Date</label>
+                <input type="date" class="form-control" id="start_date" name="start_date" 
+                       value="{{ request.args.get('start_date', '') }}">
+            </div>
+            <div class="col-md-3">
+                <label for="end_date" class="form-label">End Date</label>
+                <input type="date" class="form-control" id="end_date" name="end_date"
+                       value="{{ request.args.get('end_date', '') }}">
+            </div>
+            <div class="col-md-4">
+                <label for="activity_type" class="form-label">Activity Type</label>
+                <select class="form-select" id="activity_type" name="activity_type">
+                    <option value="">All Activities</option>
+                    {% for activity in activity_types %}
+                    <option value="{{ activity }}" {% if request.args.get('activity_type') == activity %}selected{% endif %}>
+                        {{ activity }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary me-2">Filter</button>
+                <a href="{{ url_for('main.reports') }}" class="btn btn-outline-secondary">Reset</a>
+            </div>
+        </form>
+
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <h5>Total Activities</h5>
+                    <p class="display-6">{{ report_activities|length }}</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <h5>Total Hours</h5>
+                    <p class="display-6">{{ "%.1f"|format(report_activities|sum(attribute='duration')) }}</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <h5>Avg. Daily Hours</h5>
+                    <p class="display-6">{{ "%.1f"|format((report_activities|sum(attribute='duration'))/7) if report_activities|length > 0 else 0 }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>Weekly Activity Summary</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="weeklyChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>Activity Distribution</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="activityChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5>Detailed Activity Log</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Activity</th>
+                                <th>Duration</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for activity in report_activities %}
+                            <tr>
+                                <td>{{ activity.date.strftime('%Y-%m-%d') }}</td>
+                                <td>{{ activity.name }}</td>
+                                <td>{{ "%.1f"|format(activity.duration) }} hrs</td>
+                                <td>{{ activity.description|truncate(30) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center">No activities found for selected filters</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+<script>
+    // Weekly Activity Chart
+    const weeklyCtx = document.getElementById('weeklyChart').getContext('2d');
+    const weeklyChart = new Chart(weeklyCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ weekly_labels|tojson }},
+            datasets: [{
+                label: 'Hours',
+                data: {{ weekly_data|tojson }},
+                backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Hours'
+                    }
+                }
+            }
+        }
+    });
+
+    // Only create activity chart if we have data
+    {% if activity_labels %}
+    // Activity Distribution Chart
+    const activityCtx = document.getElementById('activityChart').getContext('2d');
+    const activityChart = new Chart(activityCtx, {
+        type: 'pie',
+        data: {
+            labels: {{ activity_labels|tojson }},
+            datasets: [{
+                data: {{ activity_data|tojson }},
+                backgroundColor: [
+                    'rgba(255, 99, 132, 0.7)',
+                    'rgba(54, 162, 235, 0.7)',
+                    'rgba(255, 206, 86, 0.7)',
+                    'rgba(75, 192, 192, 0.7)',
+                    'rgba(153, 102, 255, 0.7)',
+                    'rgba(255, 159, 64, 0.7)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+    {% endif %}
+</script>
+{% endblock %}

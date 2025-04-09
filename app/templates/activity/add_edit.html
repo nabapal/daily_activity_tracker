@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<style>
+    .select-field {
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h3>{{ title }}</h3>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="">
+                    {{ form.hidden_tag() }}
+                    
+                    {% if title == 'Edit Activity' %}
+                    <div class="mb-3">
+                        <label class="form-label">Activity ID</label>
+                        <input type="text" class="form-control" value="{{ activity.activity_id }}" readonly>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        {{ form.details.label(class="form-label") }}
+                        {{ form.details(class="form-control" + (" is-invalid" if form.details.errors else ""), rows=4) }}
+                        {% for error in form.details.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            {{ form.node_name.label(class="form-label") }}
+                            {{ form.node_name(class="form-select" + (" is-invalid" if form.node_name.errors else "")) }}
+                            {% for error in form.node_name.errors %}
+                                <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.activity_type.label(class="form-label") }}
+                            {{ form.activity_type(class="form-select" + (" is-invalid" if form.activity_type.errors else "")) }}
+                            {% for error in form.activity_type.errors %}
+                                <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            {{ form.status.label(class="form-label") }}
+                            {{ form.status(class="form-select" + (" is-invalid" if form.status.errors else "")) }}
+                            {% for error in form.status.errors %}
+                                <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.start_date.label(class="form-label") }}
+                            {{ form.start_date(class="form-control datetimepicker" + (" is-invalid" if form.start_date.errors else "")) }}
+                            {% for error in form.start_date.errors %}
+                                <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.end_date.label(class="form-label") }}
+                        {{ form.end_date(class="form-control datetimepicker" + (" is-invalid" if form.end_date.errors else "")) }}
+                        {% for error in form.end_date.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary me-md-2">
+                            Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            Save Activity
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        flatpickr('.datetimepicker', {
+            enableTime: true,
+            dateFormat: "Y-m-d H:i",
+            defaultDate: "{{ form.start_date.data if form.start_date.data else '' }}"
+        });
+    });
+</script>
+{% endblock %}

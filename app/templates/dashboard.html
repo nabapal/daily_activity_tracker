@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        transition: transform 0.3s ease;
+    }
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+    .badge {
+        font-size: 0.9em;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Your Activities</h1>
+        <div>
+            <a href="{{ url_for('main.add_activity') }}" class="btn btn-primary me-2">
+                <i class="bi bi-plus-circle"></i> Add Activity
+            </a>
+            {% if current_user.role == 'team_lead' %}
+            <a href="{{ url_for('team_lead.dashboard') }}" class="btn btn-outline-primary">
+                <i class="bi bi-people-fill"></i> Team View
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card stat-card text-white bg-primary mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Total Activities</h5>
+                    <p class="display-6">{{ activities|length }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card text-white bg-success mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Completed</h5>
+                    <p class="display-6">
+                        {{ activities|selectattr('status', 'equalto', 'Completed')|list|length }}
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card text-white bg-info mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Total Hours</h5>
+                    <p class="display-6">
+                        {{ activities|sum(attribute='duration')|round(2) if activities|sum(attribute='duration') else 0 }}
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card text-white bg-warning mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">In Progress</h5>
+                    <p class="display-6">
+                        {{ activities|selectattr('status', 'equalto', 'In Progress')|list|length }}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Activity ID</th>
+                            <th>Details</th>
+                            <th>Node</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Start Date</th>
+                            <th>Duration</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for activity in activities %}
+                        <tr>
+                            <td>{{ activity.activity_id }}</td>
+                            <td>{{ activity.details|truncate(30) }}</td>
+                            <td>
+                                <span class="badge bg-primary">{{ activity.node_name }}</span>
+                            </td>
+                            <td>{{ activity.activity_type }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if activity.status == 'Completed' else 'warning' }}">
+                                    {{ activity.status }}
+                                </span>
+                            </td>
+                            <td>{{ activity.start_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>
+                                {% if activity.duration %}
+                                {{ "%.2f"|format(activity.duration) }} hrs
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('main.edit_activity', id=activity.id) }}" 
+                                   class="btn btn-sm btn-outline-primary me-1">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <form method="POST" action="{{ url_for('main.delete_activity', id=activity.id) }}" 
+                                      class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger"
+                                            onclick="return confirm('Delete this activity?')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center py-4">
+                                <div class="alert alert-info">
+                                    No activities found. <a href="{{ url_for('main.add_activity') }}">Add your first activity</a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

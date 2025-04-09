@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Team Lead Dashboard</h2>
+    
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h5 class="card-title">Team Members</h5>
+                    <p class="display-6">{{ current_user.team.members.count() }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h5 class="card-title">Active Activities</h5>
+                    <p class="display-6">{{ activities|length }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <a href="{{ url_for('team_lead.manage_dropdowns') }}" class="btn btn-info btn-block py-3">
+                <i class="bi bi-gear"></i> Manage Dropdowns
+            </a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h4>Team Activities</h4>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Details</th>
+                            <th>Owner</th>
+                            <th>Status</th>
+                            <th>Node</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for activity in activities %}
+                        <tr>
+                            <td>{{ activity.activity_id }}</td>
+                            <td>{{ activity.details|truncate(30) }}</td>
+                            <td>{{ activity.author.username }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if activity.status == 'Completed' else 'warning' }}">
+                                    {{ activity.status }}
+                                </span>
+                            </td>
+                            <td>{{ activity.node_name }}</td>
+                            <td>
+                                <a href="{{ url_for('team_lead.assign_activity', activity_id=activity.id) }}" 
+                                   class="btn btn-sm btn-outline-primary">
+                                    Assign
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
