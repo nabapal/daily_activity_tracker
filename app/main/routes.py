@@ -1,78 +1,151 @@
-from flask import render_template, redirect, url_for, flash, request
-from flask_login import login_required, current_user
-from datetime import datetime, timedelta
+from datetime import datetime
+from flask import render_template, flash, redirect, url_for, request, abort
+from flask_login import current_user, login_user, logout_user, login_required
 from app import db
+from app.models import User, Activity, DropdownOption, Team
+from app.main.forms import LoginForm, RegistrationForm, ActivityForm, EditProfileForm, ReportFilterForm
 from app.main import bp
-from app.models import Activity, ActivityType, NodeName, StatusType
-from app.main.forms import ActivityForm
-from sqlalchemy import func
-from sqlalchemy.exc import IntegrityError
-import time
 
 @bp.route('/')
 def index():
+    """Landing page for non-authenticated users"""
     if current_user.is_authenticated:
         return redirect(url_for('main.dashboard'))
-    return render_template('index.html')
+    return render_template('index.html', title='Home')
 
 @bp.route('/dashboard')
 @login_required
 def dashboard():
-    activities = current_user.activities.order_by(Activity.start_date.desc()).all()
+    """Main dashboard for authenticated users"""
+    page = request.args.get('page', 1, type=int)
+    activities = current_user.activities.order_by(
+        Activity.start_time.desc()).paginate(
+            page=page, per_page=10, error_out=False)
     
-    # Calculate total hours, filtering out None values
-    total_hours = sum(act.duration for act in activities if act.duration is not None)
+    # Get display names for activity types and statuses
+    for activity in activities.items:
+        activity.type_display = DropdownOption.get_display_text('activity_type', activity.activity_type)
+        activity.status_display = DropdownOption.get_display_text('status', activity.status)
     
-    # Count completed activities
-    completed_count = len([act for act in activities 
-                         if act.activity_type == ActivityType.COMPLETED])
+    return render_template('dashboard.html', 
+                         title='Dashboard',
+                         activities=activities)
+
+@bp.route('/reports', methods=['GET', 'POST'])
+@login_required
+def reports():
+    """Generate and display activity reports"""
+    form = ReportFilterForm()
     
-    # Count in-progress activities
-    in_progress_count = len([act for act in activities 
-                           if act.activity_type == ActivityType.IN_PROGRESS])
+    # Set dynamic choices for filters
+    form.activity_type.choices = [('', 'All')] + [
+        (opt.value, opt.display_text) 
+        for opt in DropdownOption.get_options('activity_type')
+    ]
+    form.status.choices = [('', 'All')] + [
+        (opt.value, opt.display_text) 
+        for opt in DropdownOption.get_options('status')
+    ]
+    form.team.choices = [('', 'All')] + [
+        (team.id, team.name) 
+        for team in Team.query.all()
+    ]
+
+    activities = current_user.activities.order_by(Activity.start_time.desc())
     
-    return render_template('dashboard.html',
-                         activities=activities,
-                         total_hours=total_hours,
-                         completed_count=completed_count,
-                         in_progress_count=in_progress_count,
-                         ActivityType=ActivityType)
+    if form.validate_on_submit():
+        # Apply filters
+        if form.start_date.data:
+            activities = activities.filter(Activity.start_time >= form.start_date.data)
+        if form.end_date.data:
+            activities = activities.filter(Activity.start_time <= form.end_date.data)
+        if form.activity_type.data:
+            activities = activities.filter(Activity.activity_type == form.activity_type.data)
+        if form.status.data:
+            activities = activities.filter(Activity.status == form.status.data)
+        if form.team.data:
+            activities = activities.filter(Activity.team_id == form.team.data)
+
+    activities = activities.all()
+    
+    # Add display texts
+    for activity in activities:
+        activity.type_display = DropdownOption.get_display_text('activity_type', activity.activity_type)
+        activity.status_display = DropdownOption.get_display_text('status', activity.status)
+    
+    return render_template('reports.html',
+                         title='Reports',
+                         form=form,
+                         activities=activities)
+@bp.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('main.dashboard'))
+    form = LoginForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(username=form.username.data).first()
+        if user is None or not user.check_password(form.password.data):
+            flash('Invalid username or password')
+            return redirect(url_for('main.login'))
+        login_user(user, remember=form.remember_me.data)
+        next_page = request.args.get('next')
+        return redirect(next_page or url_for('main.dashboard'))
+    return render_template('login.html', title='Sign In', form=form)
+
+@bp.route('/logout')
+def logout():
+    logout_user()
+    return redirect(url_for('main.index'))
+
+@bp.route('/register', methods=['GET', 'POST'])
+def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('main.dashboard'))
+    form = RegistrationForm()
+    if form.validate_on_submit():
+        user = User(username=form.username.data, email=form.email.data)
+        user.set_password(form.password.data)
+        db.session.add(user)
+        db.session.commit()
+        flash('Congratulations, you are now a registered user!')
+        return redirect(url_for('main.login'))
+    return render_template('register.html', title='Register', form=form)
 
 @bp.route('/add_activity', methods=['GET', 'POST'])
 @login_required
 def add_activity():
     form = ActivityForm()
-    if form.validate_on_submit():
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                activity = Activity(
-                    details=form.details.data,
-                    node_name=NodeName[form.node_name.data],
-                    activity_type=ActivityType[form.activity_type.data],
-                    status=StatusType[form.status.data],
-                    start_date=form.start_date.data,
-                    end_date=form.end_date.data,
-                    user_id=current_user.id
-                )
-                
-                db.session.add(activity)
-                db.session.flush()  # Generate ID before commit
-                
-                if activity.activity_type == ActivityType.COMPLETED:
-                    activity.calculate_duration()
-                
-                db.session.commit()
-                flash('Activity added successfully!', 'success')
-                return redirect(url_for('main.dashboard'))
-                
-            except IntegrityError:
-                db.session.rollback()
-                if attempt == max_retries - 1:
-                    flash('Error creating activity. Please try again.', 'danger')
-                time.sleep(0.1)
     
-    return render_template('activity/add_edit.html', form=form, title='Add Activity')
+    # Set dynamic choices
+    form.activity_type.choices = [
+        (opt.value, opt.display_text) 
+        for opt in DropdownOption.get_options('activity_type')
+    ]
+    form.status.choices = [
+        (opt.value, opt.display_text) 
+        for opt in DropdownOption.get_options('status')
+    ]
+    form.team.choices = [
+        (team.id, team.name) 
+        for team in Team.query.all()
+    ]
+    
+    if form.validate_on_submit():
+        activity = Activity(
+            title=form.title.data,
+            description=form.description.data,
+            start_time=form.start_time.data,
+            end_time=form.end_time.data,
+            activity_type=form.activity_type.data,
+            status=form.status.data,
+            team_id=form.team.data,
+            user_id=current_user.id
+        )
+        db.session.add(activity)
+        db.session.commit()
+        flash('Your activity has been added!')
+        return redirect(url_for('main.dashboard'))
+    return render_template('add_activity.html', title='Add Activity', form=form)
 
 @bp.route('/edit_activity/<int:id>', methods=['GET', 'POST'])
 @login_required
@@ -80,40 +153,46 @@ def edit_activity(id):
     activity = Activity.query.get_or_404(id)
     if activity.user_id != current_user.id:
         abort(403)
+        
+    form = ActivityForm()
     
-    form = ActivityForm(obj=activity)
-    
-    # Convert enum values to strings for form initialization
-    form.node_name.data = activity.node_name.name
-    form.activity_type.data = activity.activity_type.name
-    form.status.data = activity.status.name
+    # Set dynamic choices
+    form.activity_type.choices = [
+        (opt.value, opt.display_text) 
+        for opt in DropdownOption.get_options('activity_type')
+    ]
+    form.status.choices = [
+        (opt.value, opt.display_text) 
+        for opt in DropdownOption.get_options('status')
+    ]
+    form.team.choices = [
+        (team.id, team.name) 
+        for team in Team.query.all()
+    ]
     
     if form.validate_on_submit():
-        try:
-            # Update all fields directly (no enum conversion needed)
-            form.populate_obj(activity)
-            
-            # Manually set enum fields
-            activity.node_name = NodeName[form.node_name.data]
-            activity.activity_type = ActivityType[form.activity_type.data] 
-            activity.status = StatusType[form.status.data]
-            
-            # Handle duration calculation
-            if activity.activity_type == ActivityType.COMPLETED:
-                activity.calculate_duration()
-            
-            db.session.commit()
-            flash('Activity updated successfully!', 'success')
-            return redirect(url_for('main.dashboard'))
-            
-        except Exception as e:
-            db.session.rollback()
-            flash(f'Error updating activity: {str(e)}', 'danger')
+        activity.title = form.title.data
+        activity.description = form.description.data
+        activity.start_time = form.start_time.data
+        activity.end_time = form.end_time.data
+        activity.activity_type = form.activity_type.data
+        activity.status = form.status.data
+        activity.team_id = form.team.data
+        db.session.commit()
+        flash('Your changes have been saved.')
+        return redirect(url_for('main.dashboard'))
     
-    return render_template('activity/add_edit.html',
-                         form=form,
-                         title='Edit Activity',
-                         activity=activity)
+    # Pre-populate form for GET request
+    if request.method == 'GET':
+        form.title.data = activity.title
+        form.description.data = activity.description
+        form.start_time.data = activity.start_time
+        form.end_time.data = activity.end_time
+        form.activity_type.data = activity.activity_type
+        form.status.data = activity.status
+        form.team.data = activity.team_id
+    
+    return render_template('edit_activity.html', title='Edit Activity', form=form)
 
 @bp.route('/delete_activity/<int:id>', methods=['POST'])
 @login_required
@@ -121,75 +200,20 @@ def delete_activity(id):
     activity = Activity.query.get_or_404(id)
     if activity.user_id != current_user.id:
         abort(403)
-    
     db.session.delete(activity)
     db.session.commit()
-    flash('Activity deleted successfully!', 'success')
+    flash('Your activity has been deleted.')
     return redirect(url_for('main.dashboard'))
 
-@bp.route('/reports')
+@bp.route('/user/<username>')
 @login_required
-def reports():
-    # Get filter parameters
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
-    activity_type = request.args.get('activity_type')
+def user(username):
+    user = User.query.filter_by(username=username).first_or_404()
+    activities = user.activities.order_by(Activity.start_time.desc()).all()
     
-    # Base query
-    query = Activity.query.filter_by(user_id=current_user.id)
+    # Add display texts
+    for activity in activities:
+        activity.type_display = DropdownOption.get_display_text('activity_type', activity.activity_type)
+        activity.status_display = DropdownOption.get_display_text('status', activity.status)
     
-    # Apply filters
-    if start_date:
-        query = query.filter(Activity.date >= datetime.strptime(start_date, '%Y-%m-%d'))
-    if end_date:
-        query = query.filter(Activity.date <= datetime.strptime(end_date, '%Y-%m-%d'))
-    if activity_type:
-        query = query.filter(Activity.name == activity_type)
-    
-    # Get report activities
-    report_activities = query.order_by(Activity.date.desc()).all()
-    
-    # Get activity types for filter dropdown
-    activity_types = db.session.query(Activity.name)\
-        .filter_by(user_id=current_user.id)\
-        .distinct()\
-        .all()
-    activity_types = [a[0] for a in activity_types]
-    
-    # Prepare data for weekly chart
-    weekly_data = []
-    weekly_labels = []
-    
-    # Get last 7 days data
-    for i in range(6, -1, -1):
-        day = datetime.now() - timedelta(days=i)
-        total = db.session.query(func.sum(Activity.duration))\
-            .filter_by(user_id=current_user.id)\
-            .filter(func.date(Activity.date) == day.date())\
-            .scalar() or 0
-        weekly_data.append(float(total))
-        weekly_labels.append(day.strftime('%a'))
-    
-    # Get activity distribution data (only if activities exist)
-    activity_labels = []
-    activity_data = []
-    
-    if report_activities:
-        activity_dist = db.session.query(
-                Activity.name,
-                func.sum(Activity.duration).label('total_duration')
-            )\
-            .filter_by(user_id=current_user.id)\
-            .group_by(Activity.name)\
-            .all()
-        
-        activity_labels = [a[0] for a in activity_dist]
-        activity_data = [float(a[1]) for a in activity_dist]
-    
-    return render_template('activity/reports.html',
-                         report_activities=report_activities,
-                         activity_types=activity_types,
-                         weekly_labels=weekly_labels,
-                         weekly_data=weekly_data,
-                         activity_labels=activity_labels,
-                         activity_data=activity_data)
+    return render_template('user.html', user=user, activities=activities)

@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash
 from flask_login import login_required, current_user
 from app import db
 from app.models import User, Activity, Team, DropdownOption
-from app.forms import DropdownOptionForm, AssignActivityForm
+from app.main.forms import DropdownOptionForm, AssignActivityForm
 
 bp = Blueprint('team_lead', __name__, url_prefix='/team_lead')
 
