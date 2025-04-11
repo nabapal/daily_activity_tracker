@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Team Reports</h2>
+    
+    <div class="card mt-4">
+        <div class="card-header bg-primary text-white">
+            Generated Reports
+        </div>
+        <div class="card-body">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Type</th>
+                        <th>Author</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for report in reports %}
+                    <tr>
+                        <td>{{ report.title }}</td>
+                        <td>{{ report.report_type }}</td>
+                        <td>{{ report.author.username }}</td>
+                        <td>{{ report.created_at.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            <a href="#" class="btn btn-sm btn-primary">View</a>
+                            <a href="#" class="btn btn-sm btn-secondary">Download</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,8 +1,8 @@
 from flask_wtf import FlaskForm
-from wtforms import (BooleanField, SelectMultipleField, StringField, PasswordField, TextAreaField, 
+from wtforms import (BooleanField, StringField, PasswordField, TextAreaField, 
                     SelectField, SubmitField, DateTimeField, DateField)
 from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional
-from wtforms.widgets import TextArea
+from flask import current_app
 
 class LoginForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
@@ -11,45 +11,50 @@ class LoginForm(FlaskForm):
     submit = SubmitField('Sign In')
 
 class RegistrationForm(FlaskForm):
-    username = StringField('Username', validators=[DataRequired(), Length(min=4, max=64)])
-    email = StringField('Email', validators=[DataRequired(), Email(), Length(max=120)])
-    password = PasswordField('Password', validators=[DataRequired()])
-    password2 = PasswordField('Repeat Password', validators=[DataRequired(), EqualTo('password')])
+    username = StringField('Username', validators=[DataRequired(), Length(min=4, max=25)])
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    password = PasswordField('Password', validators=[DataRequired(), Length(min=6)])
+    password2 = PasswordField('Confirm Password', validators=[DataRequired(), EqualTo('password')])
+    role = SelectField('Role', choices=[], validators=[DataRequired()])
+    team = SelectField('Team', choices=[], validators=[DataRequired()])
     submit = SubmitField('Register')
 
+    def __init__(self, *args, **kwargs):
+        super(RegistrationForm, self).__init__(*args, **kwargs)
+        self.role.choices = current_app.config['AVAILABLE_ROLES']
+        self.team.choices = current_app.config['AVAILABLE_TEAMS']
+
 class ActivityForm(FlaskForm):
+    details = TextAreaField('Details', validators=[DataRequired()], render_kw={"rows": 5})
+    node_name = SelectField('Node Name', coerce=str, validators=[DataRequired()])
+    activity_type = SelectField('Activity Type', coerce=str, validators=[DataRequired()])
+    status = SelectField('Status', coerce=str, validators=[DataRequired()])
+    start_date = DateTimeField('Start Date', format='%Y-%m-%d %H:%M', validators=[DataRequired()])
+    end_date = DateTimeField('End Date', format='%Y-%m-%d %H:%M', validators=[Optional()])
+    assigned_to = SelectField('Assign To', coerce=int, validators=[DataRequired()])
+    submit = SubmitField('Save Activity')
+
+class ReportForm(FlaskForm):
     title = StringField('Title', validators=[DataRequired(), Length(max=100)])
-    description = TextAreaField('Description', validators=[Length(max=2000)])
-    start_time = DateTimeField('Start Time', format='%Y-%m-%d %H:%M', validators=[Optional()])
-    end_time = DateTimeField('End Time', format='%Y-%m-%d %H:%M', validators=[Optional()])
-    activity_type = SelectField('Type', coerce=str, validators=[DataRequired()])
-    status = SelectField('Status', coerce=str, validators=[Optional()])
-    team = SelectField('Team', coerce=int, validators=[Optional()])
-    submit = SubmitField('Save')
-
-class ReportFilterForm(FlaskForm):
-    start_date = DateField('From Date', format='%Y-%m-%d', validators=[Optional()])
-    end_date = DateField('To Date', format='%Y-%m-%d', validators=[Optional()])
-    activity_type = SelectField('Activity Type', coerce=str, validators=[Optional()])
-    status = SelectField('Status', coerce=str, validators=[Optional()])
-    team = SelectField('Team', coerce=int, validators=[Optional()])
-    submit = SubmitField('Filter')
-
-class EditProfileForm(FlaskForm):
-    username = StringField('Username', validators=[DataRequired()])
-    about_me = TextAreaField('About me', validators=[Length(min=0, max=140)])
-    submit = SubmitField('Submit')
+    content = TextAreaField('Content', validators=[DataRequired()])
+    report_type = SelectField('Report Type', choices=[
+        ('daily', 'Daily Report'),
+        ('weekly', 'Weekly Report'),
+        ('monthly', 'Monthly Report')
+    ], validators=[DataRequired()])
+    submit = SubmitField('Generate Report')
 
 class DropdownOptionForm(FlaskForm):
-    category = SelectField('Category', choices=[
-        ('node_name', 'Node Name'),
-        ('activity_type', 'Activity Type'),
-        ('status', 'Status')
-    ], validators=[DataRequired()])
-    name = StringField('Display Name', validators=[DataRequired()])
-    value = StringField('System Value', validators=[DataRequired()])
-    submit = SubmitField('Add Option')
+    category = SelectField('Category', choices=[], validators=[DataRequired()])
+    display_text = StringField('Display Text', validators=[DataRequired(), Length(max=100)])
+    value = StringField('System Value', validators=[DataRequired(), Length(max=100)])
+    submit = SubmitField('Save Option')
 
-class AssignActivityForm(FlaskForm):
-    users = SelectMultipleField('Assign to Users', coerce=int)
-    submit = SubmitField('Assign')
+    def __init__(self, *args, **kwargs):
+        super(DropdownOptionForm, self).__init__(*args, **kwargs)
+        self.category.choices = [(k, v) for k, v in current_app.config['DROPDOWN_CATEGORIES'].items()]
+
+class ProfileForm(FlaskForm):
+    username = StringField('Username', validators=[DataRequired()])
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    submit = SubmitField('Update Profile')

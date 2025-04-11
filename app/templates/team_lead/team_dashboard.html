@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Team Dashboard: {{ current_team }}</h2>
+    
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    Team Members
+                </div>
+                <div class="card-body">
+                    <ul class="list-group">
+                        {% for member in team_members %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ member.username }}
+                            <span class="badge bg-secondary">{{ member.role }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    Recent Team Activities
+                </div>
+                <div class="card-body">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Activity</th>
+                                <th>Assigned To</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for activity in activities %}
+                            <tr>
+                                <td>{{ activity.activity_id }}</td>
+                                <td>{{ activity.details[:50] }}...</td>
+                                <td>{{ activity.assignee.username if activity.assignee else 'Unassigned' }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if activity.status == 'completed' else 'warning' }}">
+                                        {{ activity.status }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('team_lead.assign_activity', activity_id=activity.id) }}" 
+                                       class="btn btn-sm btn-primary">Assign</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

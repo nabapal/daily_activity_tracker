@@ -1,7 +1,8 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField, BooleanField
+from wtforms import StringField, PasswordField, SubmitField, BooleanField, SelectField
 from wtforms.validators import DataRequired, Email, EqualTo, ValidationError
 from app.models import User
+from app.config.constants import TEAMS, ROLES  # import config dicts
 
 class LoginForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
@@ -13,8 +14,12 @@ class RegistrationForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = PasswordField('Password', validators=[DataRequired()])
-    password2 = PasswordField(
-        'Repeat Password', validators=[DataRequired(), EqualTo('password')])
+    password2 = PasswordField('Repeat Password', validators=[DataRequired(), EqualTo('password')])
+
+    # New fields for role and team
+    role = SelectField('Role', choices=[(k, v) for k, v in ROLES.items()], validators=[DataRequired()])
+    team_name = SelectField('Team Name', choices=[(k, v) for k, v in TEAMS.items()], validators=[DataRequired()])
+
     submit = SubmitField('Register')
 
     def validate_username(self, username):

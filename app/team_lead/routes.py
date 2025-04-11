@@ -1,103 +1,142 @@
-from flask import Blueprint, render_template, redirect, url_for, flash
-from flask_login import login_required, current_user
+from flask import render_template, flash, redirect, url_for, request, abort
+from flask_login import current_user, login_required
 from app import db
-from app.models import User, Activity, Team, DropdownOption
-from app.main.forms import DropdownOptionForm, AssignActivityForm
+from app.models import User, Activity, DropdownOption
+from app.team_lead import bp
+from app.team_lead.forms import TeamActivityForm
+from config import Config
 
-bp = Blueprint('team_lead', __name__, url_prefix='/team_lead')
-
-@bp.route('/dashboard')
+@bp.route('/team_dashboard')
 @login_required
-def dashboard():
-    if current_user.role != 'team_lead':
+def team_dashboard():
+    if not current_user.is_team_lead:
         abort(403)
     
-    team_members = User.query.filter_by(team_id=current_user.team_id).all()
-    activities = Activity.query.filter(
-        (Activity.user_id.in_([u.id for u in team_members])) |
-        (Activity.assigned_to.in_([u.id for u in team_members]))
+    # Get team members
+    team_members = User.query.filter_by(team=current_user.team).all()
+    
+    # Get team activities
+    activities = Activity.query.join(
+        User, Activity.user_id == User.id
+    ).filter(
+        User.team == current_user.team
     ).order_by(Activity.start_date.desc()).all()
     
-    return render_template('team_lead/dashboard.html',
+    return render_template('team_lead/team_dashboard.html',
+                         team_members=team_members,
                          activities=activities,
-                         team_members=team_members)
-
-@bp.route('/dropdown_options', methods=['GET', 'POST'])
-@login_required
-def manage_dropdowns():
-    if current_user.role != 'team_lead':
-        abort(403)
-        
-    form = DropdownOptionForm()
-    # Populate dropdown choices from DB
-    form.node_name.choices = [(opt.value, opt.name) for opt in 
-                             DropdownOption.query.filter_by(
-                                 category='node_name',
-                                 team_id=current_user.team_id
-                             )]
-    
-    if form.validate_on_submit():
-        option = DropdownOption(
-            category=form.category.data,
-            name=form.name.data,
-            value=form.value.data,
-            team_id=current_user.team_id
-        )
-        db.session.add(option)
-        db.session.commit()
-        flash('Dropdown option added!', 'success')
-        return redirect(url_for('team_lead.manage_dropdowns'))
-    
-    options = DropdownOption.query.filter_by(team_id=current_user.team_id).all()
-    return render_template('team_lead/dropdown_options.html',
-                         form=form,
-                         options=options)
+                         current_team=current_user.team)
 
 @bp.route('/assign_activity/<int:activity_id>', methods=['GET', 'POST'])
 @login_required
 def assign_activity(activity_id):
-    if current_user.role != 'team_lead':
+    if not current_user.is_team_lead:
         abort(403)
-        
+    
     activity = Activity.query.get_or_404(activity_id)
-    form = AssignActivityForm()
-    form.users.choices = [(u.id, u.username) for u in 
-                         User.query.filter(
-                             User.team_id == current_user.team_id,
-                             User.id != current_user.id
-                         )]
+    form = TeamActivityForm()
+    
+    # Populate members from current team only
+    form.assigned_to.choices = [
+        (member.id, member.username) 
+        for member in User.query.filter_by(team=current_user.team).all()
+    ]
     
     if form.validate_on_submit():
-        for user_id in form.users.data:
-            new_activity = Activity(
-                activity_id=f"{activity.activity_id}-A{user_id}",
-                details=activity.details,
-                node_name=activity.node_name,
-                activity_type=activity.activity_type,
-                status=activity.status,
-                start_date=activity.start_date,
-                end_date=activity.end_date,
-                duration=activity.duration,
-                user_id=user_id,
-                assigner_id=current_user.id
-            )
-            db.session.add(new_activity)
+        activity.assigned_to = form.assigned_to.data
+        activity.assigner_id = current_user.id
+        activity.status = 'assigned'
         db.session.commit()
-        flash('Activity assigned successfully!', 'success')
-        return redirect(url_for('team_lead.dashboard'))
+        flash('Activity has been assigned!', 'success')
+        return redirect(url_for('team_lead.team_dashboard'))
     
     return render_template('team_lead/assign_activity.html',
                          form=form,
                          activity=activity)
-@bp.route('/delete_option/<int:option_id>')
+
+@bp.route('/team_reports')
 @login_required
-def delete_option(option_id):
-    if current_user.role != 'team_lead':
+def team_reports():
+    if not current_user.is_team_lead:
         abort(403)
-    option = DropdownOption.query.get_or_404(option_id)
-    if option.team_id != current_user.team_id:
+    
+    # Get reports from team members
+    reports = Report.query.join(
+        User, Report.user_id == User.id
+    ).filter(
+        User.team == current_user.team
+    ).order_by(Report.created_at.desc()).all()
+    
+    return render_template('team_lead/team_reports.html',
+                         reports=reports)
+
+@bp.route('/manage_team_dropdowns', methods=['GET', 'POST'])
+@login_required
+def manage_team_dropdowns():
+    if not current_user.is_team_lead:
         abort(403)
+    
+    dropdown_options = DropdownOption.query.filter_by(
+        team=current_user.team
+    ).order_by(DropdownOption.category).all()
+    
+    return render_template('team_lead/manage_dropdowns.html',
+                         dropdown_options=dropdown_options,
+                         categories=Config.DROPDOWN_CATEGORIES)
+
+@bp.route('/add_dropdown_option', methods=['GET', 'POST'])
+@login_required
+def add_dropdown_option():
+    if not current_user.is_team_lead:
+        abort(403)
+
+    if request.method == 'POST':
+        category = request.form.get('category')
+        display_text = request.form.get('display_text')
+        value = request.form.get('value')
+        
+        if not all([category, display_text, value]):
+            flash('All fields are required', 'danger')
+            return redirect(url_for('team_lead.add_dropdown_option'))
+
+        # Check for duplicates
+        existing = DropdownOption.query.filter_by(
+            category=category,
+            value=value,
+            team=current_user.team
+        ).first()
+
+        if existing:
+            flash('This option already exists', 'danger')
+            return redirect(url_for('team_lead.add_dropdown_option'))
+
+        option = DropdownOption(
+            category=category,
+            display_text=display_text,
+            value=value,
+            team=current_user.team,
+            created_by=current_user.id
+        )
+        db.session.add(option)
+        db.session.commit()
+        flash('Dropdown option added successfully!', 'success')
+        return redirect(url_for('team_lead.manage_team_dropdowns'))
+
+    # GET request – render the form
+    return render_template('team_lead/add_dropdown_option.html')
+
+
+@bp.route('/delete_dropdown_option/<int:id>', methods=['POST'])
+@login_required
+def delete_dropdown_option(id):
+    if not current_user.is_team_lead:
+        abort(403)
+    
+    option = DropdownOption.query.get_or_404(id)
+    if option.team != current_user.team:
+        abort(403)
+    
     db.session.delete(option)
     db.session.commit()
-    flash('Option deleted', 'success')
-    return redirect(url_for('team_lead.manage_dropdowns'))
+    flash('Dropdown option deleted successfully!', 'success')
+    return redirect(url_for('team_lead.manage_team_dropdowns'))

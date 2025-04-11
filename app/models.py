@@ -1,16 +1,18 @@
 from app import db, login_manager
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
     
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(64), index=True, unique=True, nullable=False)
-    email = db.Column(db.String(120), index=True, unique=True, nullable=False)
+    username = db.Column(db.String(64), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
-    role = db.Column(db.String(20), nullable=False, default='member')  # 'admin', 'team_lead', 'member'
-    team_id = db.Column(db.Integer, db.ForeignKey('teams.id'))
+    role = db.Column(db.String(20), nullable=False, default='member')
+    team = db.Column(db.String(20), nullable=False, default='development')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationships
     activities = db.relationship('Activity', backref='author', lazy='dynamic',
@@ -21,9 +23,8 @@ class User(UserMixin, db.Model):
     assigned_by_me = db.relationship('Activity', backref='assigner',
                                     foreign_keys='Activity.assigner_id',
                                     lazy='dynamic')
-    led_team = db.relationship('Team', backref='team_lead',
-                              foreign_keys='Team.team_lead_id',
-                              uselist=False)
+    dropdown_options = db.relationship('DropdownOption', backref='creator', lazy='dynamic')
+    reports = db.relationship('Report', backref='author', lazy='dynamic')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -31,34 +32,27 @@ class User(UserMixin, db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
-    def is_admin(self):
-        return self.role == 'admin'
-
+    @property
     def is_team_lead(self):
         return self.role == 'team_lead'
 
-class Team(db.Model):
-    __tablename__ = 'teams'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), unique=True, nullable=False)
-    team_lead_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    
-    # Relationships
-    members = db.relationship('User', backref='team', lazy='dynamic')
-    dropdown_options = db.relationship('DropdownOption', backref='team', lazy='dynamic')
+    @property
+    def is_admin(self):
+        return self.role == 'admin'
 
 class DropdownOption(db.Model):
     __tablename__ = 'dropdown_options'
     
     id = db.Column(db.Integer, primary_key=True)
-    category = db.Column(db.String(50), nullable=False)  # 'node_name', 'activity_type', 'status'
-    display_name = db.Column(db.String(100), nullable=False)
+    category = db.Column(db.String(50), nullable=False)
+    display_text = db.Column(db.String(100), nullable=False)
     value = db.Column(db.String(100), nullable=False)
-    team_id = db.Column(db.Integer, db.ForeignKey('teams.id'))
+    team = db.Column(db.String(20), nullable=False)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     __table_args__ = (
-        db.UniqueConstraint('category', 'value', 'team_id', name='unique_option_per_team'),
+        db.UniqueConstraint('category', 'value', 'team', name='unique_option_per_team'),
     )
 
 class Activity(db.Model):
@@ -80,8 +74,8 @@ class Activity(db.Model):
     assigner_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     
     # Timestamps
-    created_at = db.Column(db.DateTime, default=db.func.now())
-    updated_at = db.Column(db.DateTime, default=db.func.now(), onupdate=db.func.now())
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def calculate_duration(self):
         if self.end_date and self.status == 'completed':
@@ -89,6 +83,17 @@ class Activity(db.Model):
             self.duration = round(delta.total_seconds() / 3600, 2)
             return self.duration
         return None
+
+class Report(db.Model):
+    __tablename__ = 'reports'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    report_type = db.Column(db.String(50), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 @login_manager.user_loader
 def load_user(user_id):

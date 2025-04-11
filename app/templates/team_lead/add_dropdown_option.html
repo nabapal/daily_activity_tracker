@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Add Dropdown Option</h2>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST">
+        <div class="form-group">
+            <label for="category">Category</label>
+            <select class="form-control" name="category" required>
+                <option value="">Select a Category</option>
+                <option value="status">Status</option>
+                <option value="activity_type">Activity Type</option>
+                <option value="node_name">Node Name</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="display_text">Display Text</label>
+            <input type="text" class="form-control" name="display_text" required>
+        </div>
+
+        <div class="form-group">
+            <label for="value">Value</label>
+            <input type="text" class="form-control" name="value" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary mt-2">Add Option</button>
+    </form>
+</div>
+{% endblock %}

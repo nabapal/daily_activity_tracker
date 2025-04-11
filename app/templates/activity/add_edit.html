@@ -79,6 +79,14 @@
                         {% endfor %}
                     </div>
                     
+                    <div class="mb-3">
+                        {{ form.assigned_to.label(class="form-label") }}
+                        {{ form.assigned_to(class="form-select" + (" is-invalid" if form.assigned_to.errors else "")) }}
+                        {% for error in form.assigned_to.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end">
                         <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary me-md-2">
                             Cancel

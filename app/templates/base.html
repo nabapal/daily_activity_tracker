@@ -27,7 +27,7 @@
                         </li>
                         {% if current_user.role == 'team_lead' %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('team_lead.dashboard') }}">Team Dashboard</a>
+                            <a href="{{ url_for('team_lead.team_dashboard') }}" class="btn btn-outline-primary">
                         </li>
                         {% endif %}
                     {% endif %}
