@@ -1,65 +1,157 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2>Team Dashboard: {{ current_team }}</h2>
-    
-    <div class="row mt-4">
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    Team Members
+<div class="dashboard-container">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <h1 class="dashboard-title">Team Dashboard: <span class="team-name">{{ current_team }}</span></h1>
+        <div class="dashboard-subtitle">
+            <i class="bi bi-calendar-range"></i>
+            <span id="current-date-range">{{ date_range }}</span>
+        </div>
+    </div>
+
+    <!-- Metrics Overview -->
+    <div class="metrics-grid">
+        <!-- Total Activities -->
+        <div class="metric-card">
+            <div class="metric-content">
+                <div class="metric-icon bg-blue">
+                    <i class="bi bi-clipboard-data"></i>
                 </div>
-                <div class="card-body">
-                    <ul class="list-group">
-                        {% for member in team_members %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            {{ member.username }}
-                            <span class="badge bg-secondary">{{ member.role }}</span>
-                        </li>
-                        {% endfor %}
-                    </ul>
+                <div class="metric-value">{{ activities|length }}</div>
+                <div class="metric-label">Total Activities</div>
+                <div class="metric-trend">
+                    <i class="bi bi-arrow-up-short"></i> 12% from last period
                 </div>
             </div>
         </div>
         
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    Recent Team Activities
+        <!-- Completed -->
+        <div class="metric-card">
+            <div class="metric-content">
+                <div class="metric-icon bg-green">
+                    <i class="bi bi-check-circle"></i>
                 </div>
-                <div class="card-body">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Activity</th>
-                                <th>Assigned To</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for activity in activities %}
-                            <tr>
-                                <td>{{ activity.activity_id }}</td>
-                                <td>{{ activity.details[:50] }}...</td>
-                                <td>{{ activity.assignee.username if activity.assignee else 'Unassigned' }}</td>
-                                <td>
-                                    <span class="badge bg-{{ 'success' if activity.status == 'completed' else 'warning' }}">
-                                        {{ activity.status }}
-                                    </span>
-                                </td>
-                                <td>
-                                    <a href="{{ url_for('team_lead.assign_activity', activity_id=activity.id) }}" 
-                                       class="btn btn-sm btn-primary">Assign</a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                <div class="metric-value">
+                    {{ activities|selectattr('status', 'equalto', 'Completed')|list|length }}
+                </div>
+                <div class="metric-label">Completed</div>
+                <div class="metric-completion">
+                    {% if activities|length > 0 %}
+                        {{ (activities|selectattr('status', 'equalto', 'Completed')|list|length / activities|length * 100)|round(1) }}% completion rate
+                    {% else %}
+                        0% completion rate
+                    {% endif %}
                 </div>
             </div>
+        </div>
+        
+        <!-- In Progress -->
+        <div class="metric-card">
+            <div class="metric-content">
+                <div class="metric-icon bg-orange">
+                    <i class="bi bi-arrow-repeat"></i>
+                </div>
+                <div class="metric-value">
+                    {{ activities|selectattr('status', 'equalto', 'In Progress')|list|length }}
+                </div>
+                <div class="metric-label">In Progress</div>
+                <div class="metric-avg-time">
+                    Avg. 3.2 days to complete
+                </div>
+            </div>
+        </div>
+        
+        <!-- On Hold -->
+        <div class="metric-card">
+            <div class="metric-content">
+                <div class="metric-icon bg-red">
+                    <i class="bi bi-pause-circle"></i>
+                </div>
+                <div class="metric-value">
+                    {{ activities|selectattr('status', 'equalto', 'On Hold')|list|length }}
+                </div>
+                <div class="metric-label">On Hold</div>
+                <div class="metric-hold-reason">
+                    3 awaiting client feedback
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Timeline -->
+    <div class="dashboard-section">
+        <div class="section-header">
+            <h2><i class="bi bi-activity"></i> Activity Timeline</h2>
+            <div class="date-range-picker">
+                <input type="text" class="form-control flatpickr" placeholder="Select date range">
+            </div>
+        </div>
+        
+        <div class="activity-timeline">
+            {% for activity in activities %}
+            <div class="timeline-item status-{{ activity.status|lower|replace(' ', '-') }}">
+                <div class="timeline-marker"></div>
+                <div class="timeline-content">
+                    <div class="timeline-header">
+                        <span class="activity-id">#{{ activity.activity_id }}</span>
+                        <span class="activity-title">{{ activity.details[:40] }}{% if activity.details|length > 40 %}...{% endif %}</span>
+                        <span class="activity-assignee">
+                            <i class="bi bi-person"></i> {{ activity.assignee.username if activity.assignee else 'Unassigned' }}
+                        </span>
+                    </div>
+                    <div class="timeline-dates">
+                        <span class="start-date">
+                            <i class="bi bi-calendar-plus"></i> {{ activity.start_date.strftime('%b %d, %Y') }}
+                        </span>
+                        <span class="end-date">
+                            <i class="bi bi-calendar-check"></i> 
+                            {% if activity.end_date %}
+                                {{ activity.end_date.strftime('%b %d, %Y') }}
+                            {% else %}
+                                Ongoing
+                            {% endif %}
+                        </span>
+                        <span class="duration">
+                            <i class="bi bi-clock"></i>
+                            {% if activity.duration %}
+                                {{ "%.1f"|format(activity.duration) }} hours
+                            {% else %}
+                                In progress
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="timeline-actions">
+                        <button class="btn-action view-details">
+                            <i class="bi bi-eye"></i> Details
+                        </button>
+                        <button class="btn-action reassign">
+                            <i class="bi bi-people"></i> Reassign
+                        </button>
+                        <button class="btn-action update-status">
+                            <i class="bi bi-pencil-square"></i> Update
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Status Distribution Chart -->
+    <div class="dashboard-section">
+        <div class="section-header">
+            <h2><i class="bi bi-pie-chart"></i> Status Distribution</h2>
+            <div class="chart-legend">
+                <span class="legend-item completed"><i class="bi bi-square-fill"></i> Completed</span>
+                <span class="legend-item in-progress"><i class="bi bi-square-fill"></i> In Progress</span>
+                <span class="legend-item on-hold"><i class="bi bi-square-fill"></i> On Hold</span>
+                <span class="legend-item pending"><i class="bi bi-square-fill"></i> Yet To Start</span>
+            </div>
+        </div>
+        <div class="chart-container">
+            <canvas id="statusChart" height="300"></canvas>
         </div>
     </div>
 </div>

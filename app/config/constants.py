@@ -2,10 +2,11 @@
 
 # Teams Configuration
 TEAMS = {
-    'development': 'Development Team',
-    'marketing': 'Marketing Team',
-    'sales': 'Sales Team',
-    'operations': 'Operations Team'
+    'IPSE': 'IPSE Team',
+    'TELCO': 'Telco Team',
+    'IPMPLS': 'IPMPLS Team',
+    'OPtical': 'Optical Team',
+    'Microwave': 'Microwave Team'
 }
 
 # Roles Configuration
@@ -25,10 +26,10 @@ DROPDOWN_CATEGORIES = {
 # Default Dropdown Options
 DEFAULT_DROPDOWN_OPTIONS = {
     'status': [
-        ('pending', 'Pending'),
+        ('yet_to_start', 'Yet To Start'),
         ('in_progress', 'In Progress'),
         ('completed', 'Completed'),
-        ('cancelled', 'Cancelled')
+        ('on_hold', 'On Hold')
     ],
     'activity_type': [
         ('meeting', 'Meeting'),

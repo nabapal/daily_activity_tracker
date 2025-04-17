@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <h4>Update Activity: {{ activity.activity_id }}</h4>
+    <form method="POST">
+        <div class="mb-3">
+            <label for="update_text" class="form-label">Update</label>
+            <textarea class="form-control" name="update_text" rows="4" required></textarea>
+        </div>
+        <div class="mb-3">
+            <label for="update_date" class="form-label">Date of Update</label>
+            <input type="date" name="update_date" class="form-control" required>
+        </div>
+        <button type="submit" class="btn btn-success">Submit Update</button>
+        <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}

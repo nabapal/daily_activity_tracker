@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <h4>Updates for Activity: {{ activity.activity_id }}</h4>
+    <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary mb-3">Back to Dashboard</a>
+
+    {% if updates %}
+        <ul class="list-group">
+        {% for update in updates %}
+            <li class="list-group-item">
+                <strong>{{ update.update_date.strftime('%Y-%m-%d') }}</strong><br>
+                {{ update.update_text }}
+                <div class="text-muted small">By: {{ update.user.username }}</div>
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <div class="alert alert-info">No updates added yet for this activity.</div>
+    {% endif %}
+</div>
+{% endblock %}

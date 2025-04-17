@@ -35,47 +35,72 @@
         </div>
     </div>
 
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card stat-card text-white bg-primary mb-3">
-                <div class="card-body">
-                    <h5 class="card-title">Total Activities</h5>
-                    <p class="display-6">{{ activities|length }}</p>
+    <div class="metrics-container mb-5">
+        <div class="metrics-grid">
+            <!-- Total Activities -->
+            <div class="metric-card total-card">
+                <div class="metric-content">
+                    <div class="metric-icon">
+                        <i class="bi bi-grid-3x3-gap"></i>
+                    </div>
+                    <div class="metric-value">{{ activities|length }}</div>
+                    <div class="metric-label">Total Activities</div>
                 </div>
             </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card stat-card text-white bg-success mb-3">
-                <div class="card-body">
-                    <h5 class="card-title">Completed</h5>
-                    <p class="display-6">
-                        {{ activities|selectattr('status', 'equalto', 'Completed')|list|length }}
-                    </p>
+            
+            <!-- Completed -->
+            <div class="metric-card completed-card">
+                <div class="metric-content">
+                    <div class="metric-icon">
+                        <i class="bi bi-check-circle"></i>
+                    </div>
+                    <div class="metric-value">
+                        {{ activities|selectattr('status', 'equalto', 'completed')|list|length }}
+                    </div>
+                    <div class="metric-label">Completed</div>
                 </div>
             </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card stat-card text-white bg-info mb-3">
-                <div class="card-body">
-                    <h5 class="card-title">Total Hours</h5>
-                    <p class="display-6">
-                        {{ activities | map(attribute='duration') | map('float') | sum | round(2) }}
-                    </p>
+            
+            <!-- Yet To Start -->
+            <div class="metric-card pending-card">
+                <div class="metric-content">
+                    <div class="metric-icon">
+                        <i class="bi bi-hourglass-top"></i>
+                    </div>
+                    <div class="metric-value">
+                        {{ activities|selectattr('status', 'equalto', 'yet_to_start')|list|length }}
+                    </div>
+                    <div class="metric-label">Yet To Start</div>
                 </div>
             </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card stat-card text-white bg-warning mb-3">
-                <div class="card-body">
-                    <h5 class="card-title">In Progress</h5>
-                    <p class="display-6">
-                        {{ activities|selectattr('status', 'equalto', 'In Progress')|list|length }}
-                    </p>
+            
+            <!-- In Progress -->
+            <div class="metric-card progress-card">
+                <div class="metric-content">
+                    <div class="metric-icon">
+                        <i class="bi bi-arrow-repeat"></i>
+                    </div>
+                    <div class="metric-value">
+                        {{ activities|selectattr('status', 'equalto', 'in_progress')|list|length }}
+                    </div>
+                    <div class="metric-label">In Progress</div>
+                </div>
+            </div>
+            
+            <!-- On Hold -->
+            <div class="metric-card hold-card">
+                <div class="metric-content">
+                    <div class="metric-icon">
+                        <i class="bi bi-pause-circle"></i>
+                    </div>
+                    <div class="metric-value">
+                        {{ activities|selectattr('status', 'equalto', 'on_hold')|list|length }}
+                    </div>
+                    <div class="metric-label">On Hold</div>
                 </div>
             </div>
         </div>
     </div>
-
     <div class="card">
         <div class="card-body">
             <div class="table-responsive">
@@ -88,6 +113,7 @@
                             <th>Type</th>
                             <th>Status</th>
                             <th>Start Date</th>
+                            <th>End Date</th>
                             <th>Duration</th>
                             <th>Actions</th>
                         </tr>
@@ -95,7 +121,11 @@
                     <tbody>
                         {% for activity in activities %}
                         <tr>
-                            <td>{{ activity.activity_id }}</td>
+                            <td>
+                                <a href="{{ url_for('main.view_updates', activity_id=activity.id) }}">
+                                    {{ activity.activity_id }}
+                                </a>
+                            </td>
                             <td>{{ activity.details|truncate(30) }}</td>
                             <td>
                                 <span class="badge bg-primary">{{ activity.node_name }}</span>
@@ -108,6 +138,13 @@
                             </td>
                             <td>{{ activity.start_date.strftime('%Y-%m-%d %H:%M') }}</td>
                             <td>
+                                {% if activity.end_date %}
+                                    {{ activity.end_date.strftime('%Y-%m-%d %H:%M') }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
                                 {% if activity.duration %}
                                 {{ "%.2f"|format(activity.duration) }} hrs
                                 {% else %}
@@ -118,6 +155,9 @@
                                 <a href="{{ url_for('main.edit_activity', id=activity.id) }}" 
                                    class="btn btn-sm btn-outline-primary me-1">
                                     <i class="bi bi-pencil"></i>
+                                </a>
+                                <a href="{{ url_for('main.add_update', activity_id=activity.id) }}" class="btn btn-sm btn-outline-info me-1">
+                                    <i class="bi bi-journal-plus"></i>
                                 </a>
                                 <form method="POST" action="{{ url_for('main.delete_activity', id=activity.id) }}" 
                                       class="d-inline">

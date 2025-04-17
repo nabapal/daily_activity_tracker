@@ -2,7 +2,7 @@ from flask import render_template, flash, redirect, url_for, request, abort, cur
 from flask_login import current_user, login_required
 from datetime import datetime
 from app import db
-from app.models import User, Activity, DropdownOption, Report
+from app.models import ActivityUpdate, User, Activity, DropdownOption, Report
 from app.main import bp
 from app.main.forms import (LoginForm, RegistrationForm, ActivityForm, 
                            ReportForm, DropdownOptionForm, ProfileForm)
@@ -97,6 +97,40 @@ def delete_activity(id):
     db.session.commit()
     flash('Activity deleted successfully!', 'success')
     return redirect(url_for('main.dashboard'))
+
+@bp.route('/activity/<int:activity_id>/updates')
+@login_required
+def view_updates(activity_id):
+    activity = Activity.query.get_or_404(activity_id)
+    updates = ActivityUpdate.query.filter_by(activity_id=activity_id).order_by(ActivityUpdate.update_date.desc()).all()
+    return render_template('view_updates.html', activity=activity, updates=updates)
+
+
+@bp.route('/activity/<int:activity_id>/add_update', methods=['GET', 'POST'])
+@login_required
+def add_update(activity_id):
+    activity = Activity.query.get_or_404(activity_id)
+    if request.method == 'POST':
+        update_text = request.form['update_text']
+        update_date = request.form['update_date']
+        if not update_text or not update_date:
+            flash("Both fields are required.", "danger")
+            return redirect(request.url)
+
+        update_date_obj = datetime.strptime(update_date, '%Y-%m-%d').date()
+
+        update = ActivityUpdate(
+            activity_id=activity.id,
+            update_text=update_text,
+            update_date=update_date_obj,
+            updated_by=current_user.id
+        )
+        db.session.add(update)
+        db.session.commit()
+        flash("Update added successfully.", "success")
+        return redirect(url_for('main.dashboard'))
+
+    return render_template('add_update.html', activity=activity)
 
 @bp.route('/reports', methods=['GET', 'POST'])
 @login_required

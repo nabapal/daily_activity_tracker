@@ -84,6 +84,18 @@ class Activity(db.Model):
             return self.duration
         return None
 
+class ActivityUpdate(db.Model):
+    __tablename__ = 'activity_updates'
+
+    id = db.Column(db.Integer, primary_key=True)
+    activity_id = db.Column(db.Integer, db.ForeignKey('activities.id'), nullable=False)
+    update_date = db.Column(db.Date, nullable=False)
+    update_text = db.Column(db.Text, nullable=False)
+    updated_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    activity = db.relationship('Activity', backref='updates')
+    user = db.relationship('User', foreign_keys=[updated_by])
+
 class Report(db.Model):
     __tablename__ = 'reports'
     
